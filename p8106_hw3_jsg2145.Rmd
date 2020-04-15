@@ -1,0 +1,72 @@
+---
+title: "p8106_hw3_jsg2145"
+author: "Jared Garfinkel"
+date: "4/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(viridis)
+library(ISLR)
+library(caret)
+library(AppliedPredictiveModeling)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+
+```{r}
+data("Weekly")
+
+df = Weekly %>% 
+  janitor::clean_names()
+```
+
+```{r}
+theme1 <- transparentTheme(trans = .4)
+theme1$strip.background$col <- rgb(.0, .6, .2, .2) 
+trellis.par.set(theme1)
+
+featurePlot(x = df[, 1:8], 
+            y = df$direction,
+            scales = list(x=list(relation="free"), 
+                          y=list(relation="free")),
+            plot = "density", pch = "|", 
+            auto.key = list(columns = 2))
+```
+
+```{r}
+df_glm <- glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume, 
+              data=df, 
+              family="binomial")
+summary(df_glm)
+```
+
+Only the lag2 predictor appears significant at p = `r df_glm %>% broom::tidy() %>% filter(term == "lag2") %>% pull(p.value) %>% round(4)` < 0.05.
+
+```{r}
+df_pred = predict(df_glm, type = "response")
+df_test_pred = rep("Down", length(df_pred))
+df_test_pred[df_pred > 0.5] = "Up"
+confusionMatrix(data = as.factor(df_test_pred),
+                reference = df$direction,
+                positive = "Up")
+```
+
+```{r}
+
+```
+
+
