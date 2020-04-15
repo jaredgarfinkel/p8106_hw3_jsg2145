@@ -53,7 +53,7 @@ featurePlot(x = df[, 1:8],
 
 ## Part b
 
-```{r}
+```{r, cache = TRUE}
 df_glm <- glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume, 
               data=df, 
               family="binomial")
@@ -86,25 +86,11 @@ plot(smooth(df_roc), col = 4, add = TRUE)
 The AUC is `r df_roc$auc %>% round(4)`.
 
 ```{r}
-set.seed(22)
-df = df %>% 
-  mutate(id = row_number())
-
-set.seed(22)
 df_train = df %>% 
-  sample_frac(size = .75, replace = FALSE) 
-
-set.seed(22)
-df_test = df %>% 
-  anti_join(df_train, by = "id")
-```
-
-```{r}
-df_train = df_train %>% 
-  dplyr::select(-id)
+  filter(year < 2009)
 
 df_test = df %>% 
-  dplyr::select(-id)
+  filter(year > 2008)
 ```
 
 ```{r}
@@ -145,4 +131,22 @@ plot(smooth(df_roc_qda), col = 4, add = TRUE)
 
 The AUC is `r df_roc_qda$auc %>% round(4)`.
 
+```{r}
+ctrl1 = trainControl(method = "repeatedcv", number = 10, repeats = 5)
 
+df_knn = train(x = df_train[2:3],
+                y = df_train$direction,
+                method = "knn",
+                preProcess = c("center","scale"),
+                tuneGrid = data.frame(k = seq(1, 200, by = 5)),
+                trControl = ctrl1)
+
+ggplot(df_knn)
+
+df_knn_pred = predict(df_knn, newdata = df_test, type = "prob")[,2]
+df_roc_knn = roc(df_test$direction, df_knn_pred)
+plot(df_roc_knn, legacy.axes = TRUE, print.auc = TRUE)
+
+```
+
+The AUC for KNN is `r df_roc_knn$auc %>% round(4)`. This is relatively higher than the other AUC's.
