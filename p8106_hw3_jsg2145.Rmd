@@ -11,6 +11,7 @@ library(viridis)
 library(ISLR)
 library(caret)
 library(AppliedPredictiveModeling)
+library(pROC)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -34,6 +35,8 @@ df = Weekly %>%
   janitor::clean_names()
 ```
 
+## Part a
+
 ```{r}
 theme1 <- transparentTheme(trans = .4)
 theme1$strip.background$col <- rgb(.0, .6, .2, .2) 
@@ -47,6 +50,8 @@ featurePlot(x = df[, 1:8],
             auto.key = list(columns = 2))
 ```
 
+## Part b
+
 ```{r}
 df_glm <- glm(direction ~ lag1 + lag2 + lag3 + lag4 + lag5 + volume, 
               data=df, 
@@ -56,17 +61,57 @@ summary(df_glm)
 
 Only the lag2 predictor appears significant at p = `r df_glm %>% broom::tidy() %>% filter(term == "lag2") %>% pull(p.value) %>% round(4)` < 0.05.
 
+## Part c
+
 ```{r}
 df_pred = predict(df_glm, type = "response")
 df_test_pred = rep("Down", length(df_pred))
 df_test_pred[df_pred > 0.5] = "Up"
-confusionMatrix(data = as.factor(df_test_pred),
-                reference = df$direction,
-                positive = "Up")
+df_confusion = confusionMatrix(data = as.factor(df_test_pred),
+                               reference = df$direction,
+                               positive = "Up")
+```
+
+The sensitivity is `r df_confusion %>% broom::tidy() %>% filter(term == "sensitivity") %>% pull(estimate) %>% round(4)`, indicating a high degree of true positives, while the specificity is `r df_confusion %>% broom::tidy() %>% filter(term == "specificity") %>% pull(estimate) %>% round(4)`, indicating that when the market goes down, there are less than 12% of true negatives. Kappa is `r df_confusion %>% broom::tidy() %>% filter(term == "kappa") %>% pull(estimate) %>% round(4)`, a measure of the agreement between the predictive value and true value.
+
+## Part d
+
+```{r}
+df_roc <- roc(df$direction, df_pred) 
+plot(df_roc, legacy.axes = TRUE, print.auc = TRUE) 
+plot(smooth(df_roc), col = 4, add = TRUE)
+```
+
+The AUC is `r df_roc$auc %>% round(4)`.
+
+```{r}
+set.seed(22)
+df = df %>% 
+  mutate(id = row_number())
+
+set.seed(22)
+df_train = df %>% 
+  sample_frac(size = .75, replace = FALSE) 
+
+set.seed(22)
+df_test = df %>% 
+  anti_join(df_train, by = "id")
 ```
 
 ```{r}
+df_train = df_train %>% 
+  dplyr::select(-id)
 
+df_test = df %>% 
+  dplyr::select(-id)
+```
+
+```{r}
+df_glm_train <- glm(direction ~ lag1 + lag2, data = df_train, family = "binomial")
+df_glm_test <- predict(df_glm_train, type = "response", newdata = df_test)
+df_glm_split <- roc(df_test$direction, df_glm_test)
+plot(df_glm_split, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(df_glm_split), col = 4, add = TRUE)
 ```
 
 
