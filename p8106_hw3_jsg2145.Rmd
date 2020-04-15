@@ -12,6 +12,7 @@ library(ISLR)
 library(caret)
 library(AppliedPredictiveModeling)
 library(pROC)
+library(MASS)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -28,7 +29,7 @@ scale_fill_discrete = scale_fill_viridis_d
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
-```{r}
+```{r, cache = TRUE}
 data("Weekly")
 
 df = Weekly %>% 
@@ -109,9 +110,39 @@ df_test = df %>%
 ```{r}
 df_glm_train <- glm(direction ~ lag1 + lag2, data = df_train, family = "binomial")
 df_glm_test <- predict(df_glm_train, type = "response", newdata = df_test)
-df_glm_split <- roc(df_test$direction, df_glm_test)
-plot(df_glm_split, legacy.axes = TRUE, print.auc = TRUE)
-plot(smooth(df_glm_split), col = 4, add = TRUE)
+df_roc_split <- roc(df_test$direction, df_glm_test)
+plot(df_roc_split, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(df_roc_split), col = 4, add = TRUE)
 ```
+
+The AUC is `r df_roc_split$auc %>% round(4)`.
+
+## Part f
+
+```{r}
+df_lda = lda(direction ~ lag1 + lag2, data = df_train)
+df_lda
+plot(df_lda)
+
+df_lda_pred <- predict(df_lda, newdata = df_test)
+
+df_roc_lda <- roc(df_test$direction, df_lda_pred$posterior[,2])
+plot(df_roc_lda, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(df_roc_lda), col = 4, add = TRUE)
+```
+
+The AUC is `r df_roc_lda$auc %>% round(4)`.
+
+```{r}
+df_qda <- qda(direction ~ lag1 + lag2, data = df_train)
+df_qda_pred <- predict(df_qda, newdata = df_test)
+
+df_roc_qda <- roc(df_test$direction, df_qda_pred$posterior[,2], 
+               levels = c("Down", "Up"))
+plot(df_roc_qda, legacy.axes = TRUE, print.auc = TRUE)
+plot(smooth(df_roc_qda), col = 4, add = TRUE)
+```
+
+The AUC is `r df_roc_qda$auc %>% round(4)`.
 
 
